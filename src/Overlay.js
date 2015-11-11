@@ -13,6 +13,7 @@ class Overlay extends React.Component {
 
     this.state = {exited: !props.show};
     this.onHiddenListener = this.handleHidden.bind(this);
+    this.updatePosition = this.updatePosition.bind(this);
   }
 
   componentWillReceiveProps(nextProps) {
@@ -21,6 +22,12 @@ class Overlay extends React.Component {
     } else if (!nextProps.transition) {
       // Otherwise let handleHidden take care of marking exited.
       this.setState({exited: true});
+    }
+  }
+
+  updatePosition() {
+    if (this.refs && this.refs.position) {
+      this.refs.position.updatePosition(true);
     }
   }
 
@@ -49,7 +56,7 @@ class Overlay extends React.Component {
     // Position is be inner-most because it adds inline styles into the child,
     // which the other wrappers don't forward correctly.
     child = (
-      <Position {...{container, containerPadding, target, placement}}>
+      <Position ref="position" {...{container, containerPadding, target, placement}}>
         {child}
       </Position>
     );
