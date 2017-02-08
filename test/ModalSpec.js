@@ -1,12 +1,16 @@
+import jQuery from 'jquery';
 import React from 'react';
-import ReactTestUtils from 'react/lib/ReactTestUtils';
-import Modal from '../src/Modal';
-import { render } from './helpers';
-import jquery from 'jquery';
+import ReactTestUtils from 'react-addons-test-utils';
+import ReactDOM from 'react-dom';
 import simulant from 'simulant';
+
+import Modal from '../src/Modal';
+
 import Transition from '../src/Transition';
 
-let $ = componentOrNode => jquery(React.findDOMNode(componentOrNode));
+import { render, shouldWarn } from './helpers';
+
+const $ = componentOrNode => jQuery(ReactDOM.findDOMNode(componentOrNode));
 
 describe('Modal', function () {
   let mountPoint;
@@ -17,7 +21,7 @@ describe('Modal', function () {
   });
 
   afterEach(function () {
-    React.unmountComponentAtNode(mountPoint);
+    ReactDOM.unmountComponentAtNode(mountPoint);
     document.body.removeChild(mountPoint);
   });
 
@@ -28,8 +32,7 @@ describe('Modal', function () {
       </Modal>
     , mountPoint);
 
-    assert.ok(
-      ReactTestUtils.findRenderedDOMComponentWithTag(instance.refs.modal, 'strong'));
+    expect(instance.refs.modal.querySelectorAll('strong').length).to.equal(1);
   });
 
   it('Should disable scrolling on the modal container while open', function() {
@@ -57,7 +60,7 @@ describe('Modal', function () {
 
     let instance = render(<Container />, mountPoint);
     let modal = ReactTestUtils.findRenderedComponentWithType(instance, Modal);
-    let backdrop = React.findDOMNode(modal.refs.backdrop);
+    let backdrop = modal.backdrop;
 
     expect($(instance).css('overflow')).to.equal('hidden');
 
@@ -92,7 +95,7 @@ describe('Modal', function () {
 
     let instance = render(<Container />, mountPoint);
     let modal = ReactTestUtils.findRenderedComponentWithType(instance, Modal);
-    let backdrop = React.findDOMNode(modal.refs.backdrop);
+    let backdrop = modal.backdrop;
 
     expect($(instance).hasClass('test test2')).to.be.true;
 
@@ -109,7 +112,7 @@ describe('Modal', function () {
       </Modal>
     , mountPoint);
 
-    let backdrop = React.findDOMNode(instance.refs.backdrop);
+    let backdrop = instance.backdrop;
 
     ReactTestUtils.Simulate.click(backdrop);
 
@@ -124,7 +127,7 @@ describe('Modal', function () {
       </Modal>
     , mountPoint);
 
-    let backdrop = React.findDOMNode(instance.refs.backdrop);
+    let backdrop = instance.backdrop;
 
     ReactTestUtils.Simulate.click(backdrop);
   });
@@ -137,7 +140,7 @@ describe('Modal', function () {
       </Modal>
     , mountPoint);
 
-    let backdrop = React.findDOMNode(instance.refs.backdrop);
+    let backdrop = instance.backdrop;
 
     ReactTestUtils.Simulate.click(backdrop);
 
@@ -152,7 +155,7 @@ describe('Modal', function () {
       </Modal>
     , mountPoint);
 
-    let backdrop = React.findDOMNode(instance.refs.backdrop);
+    let backdrop = instance.backdrop;
 
     simulant.fire(backdrop, 'keyup', { keyCode: 27 });
   });
@@ -161,13 +164,12 @@ describe('Modal', function () {
   it('Should set backdrop Style', function () {
 
     let instance = render(
-      <Modal show bsClass='mymodal' backdropStyle={{ borderWidth: '3px' }}>
+      <Modal show className='mymodal' backdrop backdropStyle={{ borderWidth: '3px' }}>
         <strong>Message</strong>
       </Modal>
     , mountPoint);
 
-    let backdrop = React.findDOMNode(instance.refs.backdrop);
-
+    let backdrop = instance.backdrop;
     expect(
       backdrop.style.borderWidth).to.equal('3px');
   });
@@ -180,8 +182,7 @@ describe('Modal', function () {
           <strong>Message</strong>
         </Modal>
       , mountPoint);
-    }).to.throw(
-      'Invariant Violation: onlyChild must be passed a children with exactly one child.');
+    }).to.throw(/React.Children.only expected to receive a single React element child./);
   });
 
   it('Should add role to child', function () {
@@ -253,12 +254,59 @@ describe('Modal', function () {
         onEntering={increment}
         onEntered={()=> {
           increment();
-          instance.setProps({ show: false });
+          instance.renderWithProps({ show: false });
         }}
       >
         <strong>Message</strong>
       </Modal>
       , mountPoint);
+  });
+
+  it('Should fire show callback on mount', function () {
+    let onShowSpy = sinon.spy();
+    render(
+      <Modal show onShow={onShowSpy}>
+        <strong>Message</strong>
+      </Modal>
+    , mountPoint);
+
+    expect(onShowSpy).to.have.been.calledOnce;
+  });
+
+  it('Should fire show callback on update', function () {
+    let onShowSpy = sinon.spy();
+    let instance = render(
+      <Modal onShow={onShowSpy}>
+        <strong>Message</strong>
+      </Modal>
+    , mountPoint);
+
+    instance.renderWithProps({ show: true });
+
+    expect(onShowSpy).to.have.been.calledOnce;
+  });
+
+  it('Should accept role on the Modal', function () {
+    let instance = render(
+      <Modal role="alertdialog" show>
+        <strong>Message</strong>
+      </Modal>
+    , mountPoint);
+
+    let attr = instance.refs.modal.attributes.getNamedItem('role').value;
+    expect(attr).to.equal('alertdialog');
+  });
+
+  it('Should accept the `aria-describedby` property on the Modal', function () {
+
+    let instance = render(
+      <Modal aria-describedby="modal-description" show>
+        <strong id="modal-description">Message</strong>
+      </Modal>
+    , mountPoint);
+
+    let attr = instance.refs.modal.attributes.getNamedItem('aria-describedby').value;
+    expect(attr).to.equal('modal-description');
   });
 
   describe('Focused state', function () {
@@ -273,7 +321,7 @@ describe('Modal', function () {
     });
 
     afterEach(function () {
-      React.unmountComponentAtNode(focusableContainer);
+      ReactDOM.unmountComponentAtNode(focusableContainer);
       document.body.removeChild(focusableContainer);
     });
 
@@ -322,8 +370,7 @@ describe('Modal', function () {
       document.activeElement.should.equal(input);
     });
 
-    it('Should return focus to the modal', function () {
-
+    it('Should return focus to the modal', () => {
       document.activeElement.should.equal(focusableContainer);
 
       render(
@@ -334,23 +381,22 @@ describe('Modal', function () {
         </Modal>
         , focusableContainer);
 
+
       focusableContainer.focus();
+
       document.activeElement.className.should.contain('modal');
     });
 
     it('Should warn if the modal content is not focusable', function () {
-      let Dialog = ()=> ({ render(){ return <div/>; } });
+      shouldWarn('The modal content node does not accept focus');
 
-      sinon.stub(console, 'error');
+      const Dialog = () => <div />;
 
       render(
         <Modal show>
           <Dialog />
         </Modal>
         , focusableContainer);
-
-      expect(console.error).to.have.been.calledOnce;
-      console.error.restore();
     });
   });
 

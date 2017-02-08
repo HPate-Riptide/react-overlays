@@ -1,4 +1,5 @@
 import React from 'react';
+import { findDOMNode } from 'react-dom';
 import Position from 'react-overlays/Position';
 import Button from 'react-bootstrap/lib/Button';
 
@@ -32,26 +33,25 @@ const PlacementStyles = {
 
 
 
-class ToolTip {
-  render(){
-    let placementStyle = PlacementStyles[this.props.placement];
+const ToolTip = props => {
+  let placementStyle = PlacementStyles[props.placement];
 
-    let {
-      style,
-      arrowOffsetLeft: left = placementStyle.left,
-      arrowOffsetTop: top = placementStyle.top,
-      ...props } = this.props;
+  let {
+    style,
+    arrowOffsetLeft: left = placementStyle.left,
+    arrowOffsetTop: top = placementStyle.top,
+    children
+  } = props;
 
-    return (
-      <div style={{...OverlayStyle, ...style}}>
-        <div style={{...CalloutStyle, ...placementStyle, left, top }}/>
-        <div style={{...OverlayInnerStyle}}>
-          { props.children }
-        </div>
+  return (
+    <div style={{...OverlayStyle, ...style}}>
+      <div style={{...CalloutStyle, ...placementStyle, left, top }}/>
+      <div style={{...OverlayInnerStyle}}>
+        {children}
       </div>
-    );
-  }
-}
+    </div>
+  );
+};
 
 const PositionExample = React.createClass({
 
@@ -75,12 +75,14 @@ const PositionExample = React.createClass({
         <Button bsStyle='primary' ref='target' onClick={this.toggle}>
           I am an Position target
         </Button>
-
+        <p>
+          keep clicking to see the placement change
+        </p>
 
         <Position
           container={this}
           placement={this.state.placement}
-          target={props => React.findDOMNode(this.refs.target)}
+          target={props => findDOMNode(this.refs.target)}
         >
           <ToolTip>
             I'm placed to the: <strong>{this.state.placement}</strong>

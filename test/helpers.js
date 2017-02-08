@@ -1,10 +1,8 @@
-import React from 'react';
 import { cloneElement } from 'react';
+import ReactDOM from 'react-dom';
 
 export function shouldWarn(about) {
-  console.warn.called.should.be.true;
-  console.warn.calledWithMatch(about).should.be.true;
-  console.warn.reset();
+  console.error.expected.push(about);
 }
 
 /**
@@ -16,7 +14,7 @@ export function shouldWarn(about) {
  */
 export function render(element, mountPoint){
   let mount = mountPoint || document.createElement('div');
-  let instance = React.render(element, mount);
+  let instance = ReactDOM.render(element, mount);
 
   if (!instance.renderWithProps) {
     instance.renderWithProps = function(newProps) {

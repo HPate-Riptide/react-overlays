@@ -1,6 +1,8 @@
 import React from 'react';
-import ReactTestUtils from 'react/lib/ReactTestUtils';
+import ReactDOM from 'react-dom';
+import ReactTestUtils from 'react-addons-test-utils';
 import { render } from './helpers';
+import tsp from 'teaspoon';
 import Transition, {UNMOUNTED, EXITED, ENTERING, ENTERED, EXITING} from
   '../src/Transition';
 
@@ -27,6 +29,31 @@ describe('Transition', function () {
         );
 
     expect(instance.state.status).to.equal(EXITED);
+  });
+
+  it('should flush new props to the DOM before initiating a transition', function(done) {
+    tsp(
+      <Transition
+        in={false}
+        timeout={0}
+        enteringClassName='test-entering'
+        onEnter={node => {
+          expect(node.classList.contains('test-class')).to.equal(true)
+          expect(node.classList.contains('test-entering')).to.equal(false)
+          done()
+        }}
+      >
+        <div></div>
+      </Transition>
+    )
+    .render()
+    .tap(inst => {
+      expect(inst.dom().classList.contains('test-class')).to.equal(false)
+    })
+    .props({
+      in: true,
+      className: 'test-class'
+    })
   });
 
   describe('entering', ()=> {
@@ -219,13 +246,16 @@ describe('Transition', function () {
       }
 
       render() {
+        const { ...props } = this.props;
+        delete props.initialIn;
+
         return (
           <Transition
             ref="transition"
             unmountOnExit
             in={this.state.in}
             timeout={10}
-            {...this.props}
+            {...props}
           >
             <div />
           </Transition>
@@ -243,7 +273,7 @@ describe('Transition', function () {
           initialIn={false}
           onEnter={() => {
             expect(instance.getStatus()).to.equal(EXITED);
-            expect(React.findDOMNode(instance)).to.exist;
+            expect(ReactDOM.findDOMNode(instance)).to.exist;
 
             done();
           }}
@@ -251,7 +281,7 @@ describe('Transition', function () {
       );
 
       expect(instance.getStatus()).to.equal(UNMOUNTED);
-      expect(React.findDOMNode(instance)).to.not.exist;
+      expect(ReactDOM.findDOMNode(instance)).to.not.exist;
 
       instance.setState({in: true});
     });
@@ -262,7 +292,7 @@ describe('Transition', function () {
           initialIn
           onExited={() => {
             expect(instance.getStatus()).to.equal(UNMOUNTED);
-            expect(React.findDOMNode(instance)).to.not.exist;
+            expect(ReactDOM.findDOMNode(instance)).to.not.exist;
 
             done();
           }}
@@ -270,7 +300,7 @@ describe('Transition', function () {
       );
 
       expect(instance.getStatus()).to.equal(ENTERED);
-      expect(React.findDOMNode(instance)).to.exist;
+      expect(ReactDOM.findDOMNode(instance)).to.exist;
 
       instance.setState({in: false});
     });

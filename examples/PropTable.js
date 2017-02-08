@@ -1,4 +1,4 @@
-import merge from 'lodash/object/merge';
+import merge from 'lodash/merge';
 import React from 'react';
 
 import Label from 'react-bootstrap/lib/Label';
@@ -40,18 +40,19 @@ const PropTable = React.createClass({
 
   render(){
     let propsData = this.propsData;
-    let composes = this.props.metadata[this.props.component].composes || [];
-
     if ( !Object.keys(propsData).length ){
       return <span/>;
     }
 
+    let {component, metadata} = this.props;
+    let composes = metadata[component].composes || [];
+
     return (
       <div>
         <h3>
-          Props
-          { !!composes.length && [<br/>,
-            <small>
+          {component} Props
+          { !!composes.length && [<br key='1'/>,
+            <small key='2'>
               {'Also accepts the same props as: '}
               <em>
               { composes.reduce(
@@ -120,9 +121,9 @@ const PropTable = React.createClass({
   },
 
   getType(prop) {
-    let type = prop.type || {};
-    let name = this.getDisplayTypeName(type.name);
-    let doclets = prop.doclets || {};
+    const type = prop.type || {};
+    const name = this.getDisplayTypeName(type.name);
+    const doclets = prop.doclets || {};
 
     switch (name) {
       case 'object':
@@ -138,9 +139,9 @@ const PropTable = React.createClass({
           return i === (list.length - 1) ? current : current.concat(' | ');
         }, []);
       case 'array':
-        let child = this.getType({ type: type.value });
-
-        return <span>{'array<'}{ child }{'>'}</span>;
+        return (
+          <span>{'array<'}{this.getType({ type: type.value })}{'>'}</span>
+        );
       case 'enum':
         return this.renderEnum(type);
       case 'custom':

@@ -1,5 +1,6 @@
 import React from 'react';
-import mountable from 'react-prop-types/lib/mountable';
+import ReactDOM from 'react-dom';
+import componentOrElement from 'react-prop-types/lib/componentOrElement';
 import ownerDocument from './utils/ownerDocument';
 import getContainer from './utils/getContainer';
 
@@ -18,7 +19,7 @@ let Portal = React.createClass({
      * appended to it.
      */
     container: React.PropTypes.oneOfType([
-      mountable,
+      componentOrElement,
       React.PropTypes.func
     ]),
 
@@ -36,6 +37,14 @@ let Portal = React.createClass({
     this._renderOverlay();
   },
 
+  componentWillReceiveProps(nextProps) {
+    if (this._overlayTarget && nextProps.container !== this.props.container) {
+      this._portalContainerNode.removeChild(this._overlayTarget);
+      this._portalContainerNode = getContainer(nextProps.container, ownerDocument(this).body);
+      this._portalContainerNode.appendChild(this._overlayTarget);
+    }
+  },
+
   componentWillUnmount() {
     this._unrenderOverlay();
     this._unmountOverlayTarget();
@@ -45,22 +54,21 @@ let Portal = React.createClass({
   _mountOverlayTarget() {
     if (!this._overlayTarget) {
       this._overlayTarget = document.createElement('div');
-
+      
       if (this.props.className) {
         this._overlayTarget.className = this.props.className;
       }
-
-      this.getContainerDOMNode()
-        .appendChild(this._overlayTarget);
+      this._portalContainerNode = getContainer(this.props.container, ownerDocument(this).body);
+      this._portalContainerNode.appendChild(this._overlayTarget);
     }
   },
 
   _unmountOverlayTarget() {
     if (this._overlayTarget) {
-      this.getContainerDOMNode()
-        .removeChild(this._overlayTarget);
+      this._portalContainerNode.removeChild(this._overlayTarget);
       this._overlayTarget = null;
     }
+    this._portalContainerNode = null;
   },
 
   _renderOverlay() {
@@ -72,7 +80,9 @@ let Portal = React.createClass({
     // Save reference for future access.
     if (overlay !== null) {
       this._mountOverlayTarget();
-      this._overlayInstance = React.render(overlay, this._overlayTarget);
+      this._overlayInstance = ReactDOM.unstable_renderSubtreeIntoContainer(
+        this, overlay, this._overlayTarget
+      );
     } else {
       // Unrender if the component is null for transitions to null
       this._unrenderOverlay();
@@ -82,7 +92,7 @@ let Portal = React.createClass({
 
   _unrenderOverlay() {
     if (this._overlayTarget) {
-      React.unmountComponentAtNode(this._overlayTarget);
+      ReactDOM.unmountComponentAtNode(this._overlayTarget);
       this._overlayInstance = null;
     }
   },
@@ -101,19 +111,12 @@ let Portal = React.createClass({
     }
 
     if (this._overlayInstance) {
-      if (this._overlayInstance.getWrappedDOMNode) {
-        return this._overlayInstance.getWrappedDOMNode();
-      } else {
-        return React.findDOMNode(this._overlayInstance);
-      }
+      return ReactDOM.findDOMNode(this._overlayInstance);
     }
 
     return null;
-  },
-
-  getContainerDOMNode() {
-    return getContainer(this.props.container, ownerDocument(this).body);
   }
+
 });
 
 export default Portal;

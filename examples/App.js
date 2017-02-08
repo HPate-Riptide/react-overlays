@@ -1,28 +1,34 @@
 import React from 'react';
-
+import ReactDOM, { findDOMNode } from 'react-dom';
 import Button from 'react-bootstrap/lib/Button';
-import Editor from 'component-playground';
+import Playground from '@monastic.panic/component-playground/Playground';
 
 import PropTable from './PropTable';
 
+import AffixSource from '../webpack/example-loader!./Affix';
 import ModalExample from '../webpack/example-loader!./Modal';
 import OverlaySource from '../webpack/example-loader!./Overlay';
 import PortalSource from '../webpack/example-loader!./Portal';
 import PositionSource from '../webpack/example-loader!./Position';
 import TransitionSource from '../webpack/example-loader!./Transition';
 
-import PortalMetadata from '../webpack/metadata-loader!react-overlays/Portal';
-import PositionMetadata from '../webpack/metadata-loader!react-overlays/Position';
-import OverlayMetadata from '../webpack/metadata-loader!react-overlays/Overlay';
-import ModalMetadata from '../webpack/metadata-loader!react-overlays/Modal';
-import TransitionMetadata from '../webpack/metadata-loader!react-overlays/Transition';
+import AffixMetadata from 'component-metadata-loader?pitch!react-overlays/Affix';
+import AutoAffixMetadata from 'component-metadata-loader?pitch!react-overlays/AutoAffix';
+import PortalMetadata from 'component-metadata-loader?pitch!react-overlays/Portal';
+import PositionMetadata from 'component-metadata-loader?pitch!react-overlays/Position';
+import OverlayMetadata from 'component-metadata-loader?pitch!react-overlays/Overlay';
+import ModalMetadata from 'component-metadata-loader?pitch!react-overlays/Modal';
+import TransitionMetadata from 'component-metadata-loader?pitch!react-overlays/Transition';
 
 import * as ReactOverlays from 'react-overlays';
+import getOffset from 'dom-helpers/query/offset';
 
 import './styles.less';
 import injectCss from './injectCss';
 
-let scope = { React, Button, injectCss, ...ReactOverlays };
+const scope = {
+  React, ReactDOM, findDOMNode, Button, injectCss, ...ReactOverlays, getOffset
+};
 
 const Anchor = React.createClass({
   propTypes: {
@@ -46,7 +52,7 @@ const ExampleEditor = React.createClass({
   },
   render() {
     return (
-      <Editor
+      <Playground
         className='overlay-example'
         lineNumbers={false}
         lang="js"
@@ -54,6 +60,9 @@ const ExampleEditor = React.createClass({
         scope={scope}
         codeText={this.props.codeText}
         collapsableCode
+        babelConfig={{
+          presets: ['es2015-loose', 'react', 'stage-0']
+        }}
       />
     );
   }
@@ -72,6 +81,7 @@ const Example = React.createClass({
             <li><a href='#modals'>Modals</a></li>
             <li><a href='#position'>Position</a></li>
             <li><a href='#overlay'>Overlay</a></li>
+            <li><a href='#affixes'>Affixes</a></li>
           </ul>
         </article>
         <main className='col-md-10'>
@@ -130,10 +140,26 @@ const Example = React.createClass({
               metadata={OverlayMetadata}
             />
           </section>
+          <section>
+            <h2 className='page-header'>
+              <Anchor>Affixes</Anchor>
+            </h2>
+            <p dangerouslySetInnerHTML={{__html: AffixMetadata.Affix.descHtml }}/>
+            <p dangerouslySetInnerHTML={{__html: AutoAffixMetadata.AutoAffix.descHtml }}/>
+            <ExampleEditor codeText={AffixSource} />
+            <PropTable
+              component='Affix'
+              metadata={AffixMetadata}
+            />
+            <PropTable
+              component='AutoAffix'
+              metadata={AutoAffixMetadata}
+            />
+          </section>
         </main>
       </div>
     );
   }
 });
 
-React.render(<Example/>, document.getElementById('app-container'));
+ReactDOM.render(<Example/>, document.getElementById('app-container'));
