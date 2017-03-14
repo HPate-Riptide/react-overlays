@@ -1,7 +1,7 @@
 /*eslint-disable react/prop-types */
 import React, { cloneElement } from 'react';
 import warning from 'warning';
-import mountable from 'react-prop-types/lib/mountable';
+import componentOrElement from 'react-prop-types/lib/componentOrElement';
 import elementType from 'react-prop-types/lib/elementType';
 
 import Portal from './Portal';
@@ -30,11 +30,22 @@ let modalManager = new ModalManager();
  * - Adds the appropriate ARIA roles are automatically.
  * - Easily pluggable animations via a `<Transition/>` component.
  *
+ * Note that, in the same way the backdrop element prevents users from clicking or interacting
+ * with the page content underneath the Modal, Screen readers also need to be signaled to not to
+ * interact with page content while the Modal is open. To do this, we use a common technique of applying
+ * the `aria-hidden='true'` attribute to the non-Modal elements in the Modal `container`. This means that for
+ * a Modal to be truly modal, it should have a `container` that is _outside_ your app's
+ * React hierarchy (such as the default: document.body).
  */
 const Modal = React.createClass({
 
   propTypes: {
     ...Portal.propTypes,
+
+    /**
+     * Set the visibility of the Modal
+     */
+    show: React.PropTypes.bool,
 
     /**
      * A Node, Component instance, or function that returns either. The Modal is appended to it's container element.
@@ -43,7 +54,7 @@ const Modal = React.createClass({
      * page content can be placed behind a virtual backdrop as well as a visual one.
      */
     container: React.PropTypes.oneOfType([
-      mountable,
+      componentOrElement,
       React.PropTypes.func
     ]),
 
@@ -54,6 +65,9 @@ const Modal = React.createClass({
 
     /**
      * A callback fired when either the backdrop is clicked, or the escape key is pressed.
+     *
+     * The `onHide` callback only signals intent from the Modal,
+     * you must actually set the `show` prop to `false` for the Modal to close.
      */
     onHide: React.PropTypes.func,
 
@@ -64,6 +78,16 @@ const Modal = React.createClass({
       React.PropTypes.bool,
       React.PropTypes.oneOf(['static'])
     ]),
+
+    /**
+     * A function that returns a backdrop component. Useful for custom
+     * backdrop rendering.
+     *
+     * ```js
+     *  renderBackdrop={props => <MyBackdrop {...props} />}
+     * ```
+     */
+    renderBackdrop: React.PropTypes.func,
 
     /**
      * A callback fired when the escape key, if specified in `keyboard`, is pressed.
@@ -102,33 +126,74 @@ const Modal = React.createClass({
     transition: elementType,
 
     /**
-     * The `timeout` of the dialog transition if specified. This number is used to ensure that transition callbacks are always
-     * fired, even if browser transition events are canceled.
+     * The `timeout` of the dialog transition if specified. This number is used to ensure that
+     * transition callbacks are always fired, even if browser transition events are canceled.
      *
      * See the Transition `timeout` prop for more infomation.
      */
     dialogTransitionTimeout: React.PropTypes.number,
 
     /**
-     * The `timeout` of the backdrop transition if specified. This number is used to ensure that transition callbacks are always
-     * fired, even if browser transition events are canceled.
+     * The `timeout` of the backdrop transition if specified. This number is used to
+     * ensure that transition callbacks are always fired, even if browser transition events are canceled.
      *
      * See the Transition `timeout` prop for more infomation.
      */
     backdropTransitionTimeout: React.PropTypes.number,
 
     /**
-     * When `true` The modal will automatically shift focus to itself when it opens, and replace it to the last focused element when it closes.
-     * Generally this should never be set to false as it makes the Modal less accessible to assistive technologies, like screen readers.
+     * When `true` The modal will automatically shift focus to itself when it opens, and
+     * replace it to the last focused element when it closes. This also
+     * works correctly with any Modal children that have the `autoFocus` prop.
+     *
+     * Generally this should never be set to `false` as it makes the Modal less
+     * accessible to assistive technologies, like screen readers.
      */
     autoFocus: React.PropTypes.bool,
 
     /**
      * When `true` The modal will prevent focus from leaving the Modal while open.
-     * Generally this should never be set to false as it makes the Modal less accessible to assistive technologies, like screen readers.
+     *
+     * Generally this should never be set to `false` as it makes the Modal less
+     * accessible to assistive technologies, like screen readers.
      */
-    enforceFocus: React.PropTypes.bool
+    enforceFocus: React.PropTypes.bool,
 
+    /**
+     * Callback fired before the Modal transitions in
+     */
+    onEnter: React.PropTypes.func,
+
+    /**
+     * Callback fired as the Modal begins to transition in
+     */
+    onEntering: React.PropTypes.func,
+
+    /**
+     * Callback fired after the Modal finishes transitioning in
+     */
+    onEntered: React.PropTypes.func,
+
+    /**
+     * Callback fired right before the Modal transitions out
+     */
+    onExit: React.PropTypes.func,
+
+    /**
+     * Callback fired as the Modal begins to transition out
+     */
+    onExiting: React.PropTypes.func,
+
+    /**
+     * Callback fired after the Modal finishes transitioning out
+     */
+    onExited: React.PropTypes.func,
+
+    /**
+     * A ModalManager instance used to track and manage the state of open
+     * Modals. Useful when customizing how modals interact within a container
+     */
+    manager: React.PropTypes.object.isRequired,
   },
 
   getDefaultProps() {
@@ -140,8 +205,23 @@ const Modal = React.createClass({
       keyboard: true,
       autoFocus: true,
       enforceFocus: true,
-      onHide: noop
+      onHide: noop,
+      manager: modalManager,
+      renderBackdrop: (props) => <div {...props} />
     };
+  },
+
+  omitProps(props, propTypes) {
+
+    const keys = Object.keys(props);
+    const newProps = {};
+    keys.map((prop) => {
+      if (!Object.prototype.hasOwnProperty.call(propTypes, prop)) {
+        newProps[prop] = props[prop];
+      }
+    });
+
+    return newProps;
   },
 
   getInitialState(){
@@ -149,27 +229,31 @@ const Modal = React.createClass({
   },
 
   render() {
-    let {
+    const {
+      show,
+      container,
       children,
       transition: Transition,
       backdrop,
       dialogTransitionTimeout,
-      ...props } = this.props;
+      className,
+      style,
+      onExit,
+      onExiting,
+      onEnter,
+      onEntering,
+      onEntered
+    } = this.props;
 
-    let { onExit, onExiting, onEnter, onEntering, onEntered } = props;
-
-    let show = !!props.show;
-    let dialog = React.Children.only(this.props.children);
-
-    let setMountNode = ref => this.mountNode = (!ref || ref.getMountNode());
+    let dialog = React.Children.only(children);
+    const filteredProps = this.omitProps(this.props, Modal.propTypes)
 
     const mountModal = show || (Transition && !this.state.exited);
-
     if (!mountModal) {
       return null;
     }
 
-    let { role, tabIndex } = dialog.props;
+    const { role, tabIndex } = dialog.props;
 
     if (role === undefined || tabIndex === undefined) {
       dialog = cloneElement(dialog, {
@@ -199,14 +283,15 @@ const Modal = React.createClass({
 
     return (
       <Portal
-        ref={setMountNode}
-        container={props.container}
+        ref={this.setMountNode}
+        container={container}
       >
         <div
           ref={'modal'}
-          role={props.role || 'dialog'}
-          style={props.style}
-          className={props.className}
+          role={role || 'dialog'}
+          {...filteredProps}
+          style={style}
+          className={className}
         >
           { backdrop && this.renderBackdrop() }
           { dialog }
@@ -217,11 +302,17 @@ const Modal = React.createClass({
 
   renderBackdrop() {
     let {
+      backdropStyle,
+      backdropClassName,
+      renderBackdrop,
       transition: Transition,
       backdropTransitionTimeout } = this.props;
 
+    const backdropRef = ref => this.backdrop = ref;
+
     let backdrop = (
-      <div ref="backdrop"
+      <div
+        ref={backdropRef}
         style={this.props.backdropStyle}
         className={this.props.backdropClassName}
         onClick={this.handleBackdropClick}
@@ -234,7 +325,12 @@ const Modal = React.createClass({
           in={this.props.show}
           timeout={backdropTransitionTimeout}
         >
-          {backdrop}
+          {renderBackdrop({
+            ref: backdropRef,
+            style: backdropStyle,
+            className: backdropClassName,
+            onClick: this.handleBackdropClick
+          })}
         </Transition>
       );
     }
@@ -252,13 +348,13 @@ const Modal = React.createClass({
   },
 
   componentWillUpdate(nextProps){
-    if (nextProps.show) {
+    if (!this.props.show && nextProps.show) {
       this.checkForFocus();
     }
   },
 
   componentDidMount() {
-    if ( this.props.show ){
+    if (this.props.show) {
       this.onShow();
     }
   },
@@ -276,7 +372,9 @@ const Modal = React.createClass({
   },
 
   componentWillUnmount() {
-    if (this.props.show) {
+    let { show, transition } = this.props;
+
+    if (show || (transition && !this.state.exited)) {
       this.onHide();
     }
   },
@@ -285,9 +383,7 @@ const Modal = React.createClass({
     let doc = ownerDocument(this);
     let container = getContainer(this.props.container, doc.body);
 
-    modalManager.add(this, container, this.props.containerClassName);
-
-    this.iosClickHack();
+    this.props.manager.add(this, container, this.props.containerClassName);
 
     this._onDocumentKeyupListener =
       addEventListener(doc, 'keyup', this.handleDocumentKeyUp);
@@ -296,16 +392,24 @@ const Modal = React.createClass({
       addFocusListener(this.enforceFocus);
 
    this.focus();
+
+   if (this.props.onShow) {
+     this.props.onShow();
+   }
   },
 
   onHide() {
-    modalManager.remove(this);
+    this.props.manager.remove(this);
 
     this._onDocumentKeyupListener.remove();
 
     this._onFocusinListener.remove();
 
     this.restoreLastFocus();
+  },
+
+  setMountNode(ref) {
+    this.mountNode = ref ? ref.getMountNode() : ref;
   },
 
   handleHidden(...args) {
@@ -389,26 +493,18 @@ const Modal = React.createClass({
     }
   },
 
-  iosClickHack() {
-    // Support: <= React 0.13: https://github.com/facebook/react/issues/1169
-    if (this.refs.backdrop) {
-      React.findDOMNode(this.refs.backdrop).onclick = function () {};
-    }
-  },
-
   //instead of a ref, which might conflict with one the parent applied.
   getDialogElement() {
-    let node = React.findDOMNode(this.refs.modal);
+    let node = this.refs.modal;
     return node && node.lastChild;
   },
 
   isTopModal() {
-    return modalManager.isTopModal(this);
+    return this.props.manager.isTopModal(this);
   }
 
 });
 
-
-Modal.manager = modalManager;
+Modal.Manager = ModalManager;
 
 export default Modal;

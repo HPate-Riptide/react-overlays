@@ -1,107 +1,118 @@
+import contains from 'dom-helpers/query/contains';
 import React from 'react';
+import ReactDOM from 'react-dom';
+
 import addEventListener from './utils/addEventListener';
-import createChainedFunction from './utils/createChainedFunction';
 import ownerDocument from './utils/ownerDocument';
 
-// TODO: Consider using an ES6 symbol here, once we use babel-runtime.
-const CLICK_WAS_INSIDE = '__click_was_inside';
+function isLeftClickEvent(event) {
+  return event.button === 0;
+}
 
-function suppressRootClose(event) {
-  // Tag the native event to prevent the root close logic on document click.
-  // This seems safer than using event.nativeEvent.stopImmediatePropagation(),
-  // which is only supported in IE >= 9.
-  event.nativeEvent[CLICK_WAS_INSIDE] = true;
+function isModifiedEvent(event) {
+  return !!(event.metaKey || event.altKey || event.ctrlKey || event.shiftKey);
 }
 
 export default class RootCloseWrapper extends React.Component {
-  constructor(props) {
-    super(props);
+  constructor(props, context) {
+    super(props, context);
 
-    this.handleDocumentClick = this.handleDocumentClick.bind(this);
-    this.handleDocumentKeyUp = this.handleDocumentKeyUp.bind(this);
-  }
-
-  bindRootCloseHandlers() {
-    const doc = ownerDocument(this);
-
-    this._onDocumentClickListener =
-      addEventListener(doc, 'click', this.handleDocumentClick);
-
-    this._onDocumentKeyupListener =
-      addEventListener(doc, 'keyup', this.handleDocumentKeyUp);
-  }
-
-  handleDocumentClick(e) {
-    // This is now the native event.
-    if (e[CLICK_WAS_INSIDE]) {
-      return;
-    }
-
-    this.props.onRootClose();
-  }
-
-  handleDocumentKeyUp(e) {
-    if (e.keyCode === 27) {
-      this.props.onRootClose();
-    }
-  }
-
-  unbindRootCloseHandlers() {
-    if (this._onDocumentClickListener) {
-      this._onDocumentClickListener.remove();
-    }
-
-    if (this._onDocumentKeyupListener) {
-      this._onDocumentKeyupListener.remove();
-    }
+    this.preventMouseRootClose = false;
   }
 
   componentDidMount() {
-    this.bindRootCloseHandlers();
-  }
-
-  render() {
-    const {noWrap, children} = this.props;
-    const child = React.Children.only(children);
-
-    if (noWrap) {
-      return React.cloneElement(child, {
-        onClick: createChainedFunction(suppressRootClose, child.props.onClick)
-      });
+    if (!this.props.disabled) {
+      this.addEventListeners();
     }
-
-    // Wrap the child in a new element, so the child won't have to handle
-    // potentially combining multiple onClick listeners.
-    return (
-      <div onClick={suppressRootClose}>
-        {child}
-      </div>
-    );
   }
 
-  getWrappedDOMNode() {
-    // We can't use a ref to identify the wrapped child, since we might be
-    // stealing the ref from the owner, but we know exactly the DOM structure
-    // that will be rendered, so we can just do this to get the child's DOM
-    // node for doing size calculations in OverlayMixin.
-    const node = React.findDOMNode(this);
-    return this.props.noWrap ? node : node.firstChild;
+  componentDidUpdate(prevProps) {
+    if (!this.props.disabled && prevProps.disabled) {
+      this.addEventListeners();
+    } else if (this.props.disabled && !prevProps.disabled) {
+      this.removeEventListeners();
+    }
   }
 
   componentWillUnmount() {
-    this.unbindRootCloseHandlers();
+    if (!this.props.disabled) {
+      this.removeEventListeners();
+    }
+  }
+
+  addEventListeners() {
+    const { event } = this.props;
+    const doc = ownerDocument(this);
+
+    // Use capture for this listener so it fires before React's listener, to
+    // avoid false positives in the contains() check below if the target DOM
+    // element is removed in the React mouse callback.
+    this.documentMouseCaptureListener =
+      addEventListener(doc, event, this.handleMouseCapture, true);
+
+    this.documentMouseListener =
+      addEventListener(doc, event, this.handleMouse);
+
+    this.documentKeyupListener =
+      addEventListener(doc, 'keyup', this.handleKeyUp);
+  }
+
+  removeEventListeners() {
+    if (this.documentMouseCaptureListener) {
+      this.documentMouseCaptureListener.remove();
+    }
+
+    if (this.documentMouseListener) {
+      this.documentMouseListener.remove();
+    }
+
+    if (this.documentKeyupListener) {
+      this.documentKeyupListener.remove();
+    }
+  }
+
+  handleMouseCapture = (e) => {
+    this.preventMouseRootClose = (
+      isModifiedEvent(e) ||
+      !isLeftClickEvent(e) ||
+      contains(ReactDOM.findDOMNode(this), e.target)
+    );
+  };
+
+  handleMouse = () => {
+    if (!this.preventMouseRootClose && this.props.onRootClose) {
+      this.props.onRootClose();
+    }
+  };
+
+  handleKeyUp = (e) => {
+    if (e.keyCode === 27 && this.props.onRootClose) {
+      this.props.onRootClose();
+    }
+  };
+
+  render() {
+    return this.props.children;
   }
 }
 
 RootCloseWrapper.displayName = 'RootCloseWrapper';
 
 RootCloseWrapper.propTypes = {
-  onRootClose: React.PropTypes.func.isRequired,
+  onRootClose: React.PropTypes.func,
+  children: React.PropTypes.element,
 
   /**
-   * Passes the suppress click handler directly to the child component instead
-   * of placing it on a wrapping div. Only use when you can be sure the child
-   * properly handle the click event.
+   * Disable the the RootCloseWrapper, preventing it from triggering
+   * `onRootClose`.
    */
-  noWrap: React.PropTypes.bool
+  disabled: React.PropTypes.bool,
+  /**
+   * Choose which document mouse event to bind to
+   */
+  event: React.PropTypes.oneOf(['click', 'mousedown'])
+};
+
+RootCloseWrapper.defaultProps = {
+  event: 'click'
 };

@@ -1,23 +1,28 @@
 import React from 'react';
-import ReactTestUtils from 'react/lib/ReactTestUtils';
+import ReactDOM from 'react-dom';
+import ReactTestUtils from 'react-dom/lib/ReactTestUtils';
 import Overlay from '../src/Overlay';
 
 describe('Overlay', function () {
   let instance;
 
+  // Swallow extra props.
+  const Div = () => <div id="overlayChild"/>;
+
   afterEach(function() {
     if (instance && ReactTestUtils.isCompositeComponent(instance) && instance.isMounted()) {
-      React.unmountComponentAtNode(React.findDOMNode(instance));
+      ReactDOM.unmountComponentAtNode(ReactDOM.findDOMNode(instance).parentNode);
     }
   });
 
   it('Should add a class on an Overlay\'s container with "portalClassName" prop', function() {
     let Container = React.createClass({
       render() {
+
         return (
             <div id="wrapper">
               <Overlay container={this} show portalClassName="myPortalTestClass">
-                <div id="overlayChild" />
+                <Div>Some Text</Div>
               </Overlay>
             </div>
         );
@@ -28,6 +33,6 @@ describe('Overlay', function () {
         <Container />
     );
 
-    assert.equal(React.findDOMNode(instance).querySelectorAll('#wrapper > .myPortalTestClass > #overlayChild').length, 1);
+    assert.equal(ReactDOM.findDOMNode(instance).querySelectorAll('#wrapper > .myPortalTestClass > #overlayChild').length, 1);
   });
 });

@@ -1,4 +1,5 @@
 import React from 'react';
+import { findDOMNode } from 'react-dom';
 import Overlay from 'react-overlays/Overlay';
 import Button from 'react-bootstrap/lib/Button';
 
@@ -49,26 +50,25 @@ const PlacementStyles = {
   }
 };
 
-class ToolTip {
-  render(){
-    let placementStyle = PlacementStyles[this.props.placement];
+const ToolTip = props => {
+  let placementStyle = PlacementStyles[props.placement];
 
-    let {
-      style,
-      arrowOffsetLeft: left = placementStyle.arrow.left,
-      arrowOffsetTop: top = placementStyle.arrow.top,
-      ...props } = this.props;
+  let {
+    style,
+    arrowOffsetLeft: left = placementStyle.arrow.left,
+    arrowOffsetTop: top = placementStyle.arrow.top,
+    children
+  } = props;
 
-    return (
-      <div style={{...TooltipStyle, ...placementStyle.tooltip, ...style}}>
-        <div style={{...TooltipArrowStyle, ...placementStyle.arrow, left, top }}/>
-        <div style={TooltipInnerStyle}>
-          { props.children }
-        </div>
+  return (
+    <div style={{...TooltipStyle, ...placementStyle.tooltip, ...style}}>
+      <div style={{...TooltipArrowStyle, ...placementStyle.arrow, left, top }}/>
+      <div style={TooltipInnerStyle}>
+        {children}
       </div>
-    );
-  }
-}
+    </div>
+  );
+};
 
 const OverlayExample = React.createClass({
 
@@ -110,11 +110,11 @@ const OverlayExample = React.createClass({
           onHide={() => this.setState({ show: false })}
           placement={this.state.placement}
           container={this}
-          target={ props => React.findDOMNode(this.refs.target)}
+          target={ props => findDOMNode(this.refs.target)}
           portalClassName="test-portal-class"
         >
           <ToolTip>
-            I'm placed to the: <strong>{this.state.placement}</strong>
+            I&rsquo;m placed to the: <strong>{this.state.placement}</strong>
           </ToolTip>
         </Overlay>
       </div>

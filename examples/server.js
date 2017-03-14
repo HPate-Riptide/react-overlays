@@ -1,21 +1,25 @@
-let webpack = require('webpack');
-let WebpackDevServer = require('webpack-dev-server');
-let config = require('../webpack/examples.config');
+import webpack from 'webpack';
+import WebpackDevServer from 'webpack-dev-server';
 
-new WebpackDevServer(webpack(config), {
+import config from '../webpack/examples.config';
 
+const server = new WebpackDevServer(webpack(config), {
+  contentBase: 'examples',
   publicPath: '/static/',
   hot: true,
-  historyApiFallback: true,
   quiet: false,
   progress: true,
   stats: {
     colors: true
   }
-}).listen(3000, 'localhost', function (err) {
+});
+
+server.listen(3000, 'localhost', err => {
+  /* eslint-disable no-console */
   if (err) {
-    console.log(err);
+    console.error(err);
   }
 
   console.log('Listening at localhost:3000');
+  /* eslint-enable no-console */
 });
