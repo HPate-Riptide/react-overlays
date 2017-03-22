@@ -27,7 +27,7 @@ class Overlay extends React.Component {
 
   updatePosition() {
     if (this.refs && this.refs.position) {
-      this.refs.position.updatePosition(true);
+      this.refs.position.updatePosition(this.refs.position.getTarget());
     }
   }
 
