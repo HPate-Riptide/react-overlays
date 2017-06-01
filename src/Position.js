@@ -164,7 +164,8 @@ Position.displayName = 'Position';
 Position.defaultProps = {
   containerPadding: 0,
   placement: 'right',
-  shouldUpdatePosition: false
+  shouldUpdatePosition: false,
+  offset: { left: 0, top: 0 }
 };
 
 export default Position;
