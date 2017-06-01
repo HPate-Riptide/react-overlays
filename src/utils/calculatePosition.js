@@ -56,7 +56,7 @@ function getLeftDelta(left, overlayWidth, container, padding) {
 }
 
 export default function calculatePosition(
-  placement, overlayNode, target, container, padding
+  placement, overlayNode, target, container, padding, offset
 ) {
   const childOffset = container.tagName === 'BODY' ?
     getOffset(target) : getPosition(target, container);
@@ -67,12 +67,13 @@ export default function calculatePosition(
   let positionLeft, positionTop, arrowOffsetLeft, arrowOffsetTop;
 
   if (placement === 'left' || placement === 'right') {
-    positionTop = childOffset.top + (childOffset.height - overlayHeight) / 2;
+    const topOffset = offset.top ? 3 : 0;
+    positionTop = childOffset.top + (childOffset.height - overlayHeight) / 2 + offset.top;
 
     if (placement === 'left') {
-      positionLeft = childOffset.left - overlayWidth;
+      positionLeft = childOffset.left - overlayWidth + offset.left;
     } else {
-      positionLeft = childOffset.left + childOffset.width;
+      positionLeft = childOffset.left + childOffset.width + offset.left;
     }
 
     const topDelta = getTopDelta(
@@ -80,16 +81,16 @@ export default function calculatePosition(
     );
 
     positionTop += topDelta;
-    arrowOffsetTop = 50 * (1 - 2 * topDelta / overlayHeight) + '%';
+    arrowOffsetTop = 50 * (1 - 2 * topDelta / overlayHeight) + topOffset + '%';
     arrowOffsetLeft = void 0;
 
   } else if (placement === 'top' || placement === 'bottom') {
-    positionLeft = childOffset.left + (childOffset.width - overlayWidth) / 2;
+    positionLeft = childOffset.left + (childOffset.width - overlayWidth) / 2 + offset.left;
 
     if (placement === 'top') {
-      positionTop = childOffset.top - overlayHeight;
+      positionTop = childOffset.top - overlayHeight + offset.top;
     } else {
-      positionTop = childOffset.top + childOffset.height;
+      positionTop = childOffset.top + childOffset.height + offset.top;
     }
 
     const leftDelta = getLeftDelta(

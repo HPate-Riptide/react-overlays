@@ -36,6 +36,7 @@ class Overlay extends React.Component {
         container
       , containerPadding
       , target
+      , offset
       , placement
       , shouldUpdatePosition
       , rootClose
@@ -57,7 +58,7 @@ class Overlay extends React.Component {
     // Position is be inner-most because it adds inline styles into the child,
     // which the other wrappers don't forward correctly.
     child = (
-      <Position ref="position" {...{container, containerPadding, target, placement, shouldUpdatePosition}}>
+      <Position ref="position" {...{container, containerPadding, target, offset, placement, shouldUpdatePosition}}>
         {child}
       </Position>
     );
